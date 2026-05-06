@@ -14,6 +14,12 @@ hardcoded_feature_names = ['actual_distance_miles', 'typical_transit_days', 'fue
 unique_origin_states = ['AZ', 'CO', 'FL', 'GA', 'IL', 'MI', 'MN', 'MO', 'NC', 'NV', 'NY', 'OH', 'OR', 'PA', 'TN', 'TX', 'WA']
 unique_destination_states = ['CA', 'CO', 'FL', 'GA', 'IL', 'IN', 'MI', 'MN', 'MO', 'NC', 'NV', 'NY', 'OH', 'OR', 'PA', 'TN', 'TX', 'WA']
 
+# Hardcoded model evaluation metrics (from previous notebook steps)
+mae = 52.19
+mse = 4797.51
+rmse = 69.26
+r2 = 0.90
+
 st.header('Predict Fuel Surcharge')
 
 with st.form('prediction_form'):
@@ -51,3 +57,9 @@ with st.form('prediction_form'):
         prediction = np.dot(input_df.iloc[0].values, hardcoded_coefficients) + hardcoded_intercept
 
         st.success(f'Predicted Fuel Surcharge: ${prediction:.2f}')
+
+st.subheader('Model Performance Metrics')
+st.write(f"Mean Absolute Error (MAE): {mae:.2f}")
+st.write(f"Mean Squared Error (MSE): {mse:.2f}")
+st.write(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
+st.write(f"R-squared (R2): {r2:.2f}")
