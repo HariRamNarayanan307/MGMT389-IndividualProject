@@ -1,24 +1,18 @@
 import streamlit as st
-import pandas as pd
+import pandas as pd # Keeping pandas for DataFrame creation but no file loading
 import numpy as np
-import joblib
 
 st.set_page_config(layout="wide")
 st.title('Fuel Surcharge Prediction App')
 
-# Load the trained model and encoder
-model = joblib.load('linear_regression_model.pkl')
-encoder = joblib.load('one_hot_encoder.pkl')
+# Hardcoded model parameters (from previous notebook steps)
+hardcoded_coefficients = [0.10214626216888827, 92.36388697603331, 0.0001166046864826705, -78.41693065962767, 14.528097131796684, 9.75376733080405, -107.67438352987267, -66.91081673902887, 159.5833617996664, 17.321976240375996, -72.70983446963278, 5.990461410772045, -16.65550633043567, -102.40632772942304, -25.97022769902919, 36.15858600884479, -6.000400355387391, -28.354124330559188, 107.52713632495134, 154.2351655957822, 17.058621348832617, -60.97684952545471, 73.36019240591071, 94.8864087814897, -54.76632483522204, 30.58474266184547, 85.07409240166045, -10.627486445946896, 51.58983960100411, 41.69677353974495, 30.82276906208332, 2.502947262070191, -12.186638891157924, -12.302302830835948, 18.23235687747806, -30.01257404471909, -29.071727729227623, -137.6315024479027]
+hardcoded_intercept = 21.998962709377963
+hardcoded_feature_names = ['actual_distance_miles', 'typical_transit_days', 'fuel_gallons_used', 'origin_state_AZ', 'origin_state_CO', 'origin_state_FL', 'origin_state_GA', 'origin_state_IL', 'origin_state_MI', 'origin_state_MN', 'origin_state_MO', 'origin_state_NC', 'origin_state_NV', 'origin_state_NY', 'origin_state_OH', 'origin_state_OR', 'origin_state_PA', 'origin_state_TN', 'origin_state_TX', 'origin_state_WA', 'destination_state_CA', 'destination_state_CO', 'destination_state_FL', 'destination_state_GA', 'destination_state_IL', 'destination_state_IN', 'destination_state_MI', 'destination_state_MN', 'destination_state_MO', 'destination_state_NC', 'destination_state_NV', 'destination_state_NY', 'destination_state_OH', 'destination_state_OR', 'destination_state_PA', 'destination_state_TN', 'destination_state_TX', 'destination_state_WA']
 
-# Load the cleaned data to get unique states for dropdowns
-try:
-    df_cleaned = pd.read_csv('merged_df_cleaned.csv')
-except FileNotFoundError:
-    st.error("Error: 'merged_df_cleaned.csv' not found. Please ensure the file is in the same directory as the app.")
-    st.stop()
-
-unique_origin_states = sorted(df_cleaned['origin_state'].dropna().unique().tolist())
-unique_destination_states = sorted(df_cleaned['destination_state'].dropna().unique().tolist())
+# Hardcoded unique states (from previous notebook steps)
+unique_origin_states = ['AZ', 'CO', 'FL', 'GA', 'IL', 'MI', 'MN', 'MO', 'NC', 'NV', 'NY', 'OH', 'OR', 'PA', 'TN', 'TX', 'WA']
+unique_destination_states = ['CA', 'CO', 'FL', 'GA', 'IL', 'IN', 'MI', 'MN', 'MO', 'NC', 'NV', 'NY', 'OH', 'OR', 'PA', 'TN', 'TX', 'WA']
 
 st.header('Predict Fuel Surcharge')
 
@@ -35,69 +29,25 @@ with st.form('prediction_form'):
     submitted = st.form_submit_button('Predict Surcharge')
 
     if submitted:
-        # Prepare numerical features
-        numerical_features = pd.DataFrame([[actual_distance_miles, typical_transit_days, fuel_gallons_used]],
-                                          columns=['actual_distance_miles', 'typical_transit_days', 'fuel_gallons_used'])
+        # Create an input array with all features set to 0 initially
+        input_data = np.zeros(len(hardcoded_feature_names))
+        input_df = pd.DataFrame([input_data], columns=hardcoded_feature_names)
 
-        # Prepare categorical features for one-hot encoding
-        categorical_input = pd.DataFrame([{
-            'origin_city': 'placeholder', # Not used in final model features, but encoder expects it
-            'origin_state': origin_state,
-            'destination_city': 'placeholder', # Not used in final model features, but encoder expects it
-            'destination_state': destination_state
-        }])
+        # Fill in numerical features
+        input_df['actual_distance_miles'] = actual_distance_miles
+        input_df['typical_transit_days'] = typical_transit_days
+        input_df['fuel_gallons_used'] = fuel_gallons_used
 
-        # One-hot encode the categorical inputs using the fitted encoder
-        # Ensure columns match the encoder's expected input structure.
-        # The encoder was fit on ['origin_city', 'origin_state', 'destination_city', 'destination_state']
-        encoded_categorical_features = encoder.transform(categorical_input[['origin_city', 'origin_state', 'destination_city', 'destination_state']])
-        encoded_categorical_df = pd.DataFrame(encoded_categorical_features, columns=encoder.get_feature_names_out(['origin_city', 'origin_state', 'destination_city', 'destination_state']))
+        # Set one-hot encoded state features
+        origin_state_col = f'origin_state_{origin_state}'
+        if origin_state_col in input_df.columns:
+            input_df[origin_state_col] = 1
 
-        # Filter for only the state columns that were used in the model
-        # X_cols was defined in the notebook for the model's feature selection
-        # Assuming X_cols from the notebook context is available for defining which columns are relevant.
-        # This is a critical step to match the training features.
-        
-        # Reconstruct X_cols to accurately represent what the model expects
-        # This needs to match the exact `X_cols` used during training.
-        # Retrieve `X_cols` from the notebook context.
-        numerical_X_cols = ['actual_distance_miles', 'typical_transit_days', 'fuel_gallons_used']
-        state_X_cols = [col for col in encoder.get_feature_names_out(['origin_city', 'origin_state', 'destination_city', 'destination_state']) if col.startswith(('origin_state_', 'destination_state_'))]
-        
-        # Create the final feature set for prediction
-        prediction_input = pd.concat([numerical_features, encoded_categorical_df[state_X_cols]], axis=1)
+        destination_state_col = f'destination_state_{destination_state}'
+        if destination_state_col in input_df.columns:
+            input_df[destination_state_col] = 1
 
-        # Ensure column order matches the training data by reindexing
-        # NOTE: In a real deployment, `X_train.columns` should be saved and loaded.
-        # For now, we'll assume `state_X_cols` + `numerical_features.columns` represent the order.
-        
-        # To make this robust, I should explicitly get X_train.columns from the notebook.
-        # As I don't have direct access to X_train.columns here, I'll construct it based on the notebook's X_cols variable.
-        
-        # Placeholder for `X_cols` - in a real scenario, this would be loaded alongside the model.
-        # Given the notebook context, `X_cols` should be present in the global kernel state.
-        
-        # Need to dynamically get X_cols from the notebook's global state
-        # Since I'm generating code, I'll simulate this by reconstructing X_cols
-        
-        # X_cols reconstruction based on notebook logic:
-        # `numerical_features` + `origin_state_cols` + `destination_state_cols`
-        # I need access to `origin_state_cols` and `destination_state_cols` from the notebook.
-        # For the Streamlit app, this should be pre-saved or inferred.
+        # Calculate prediction using hardcoded coefficients and intercept
+        prediction = np.dot(input_df.iloc[0].values, hardcoded_coefficients) + hardcoded_intercept
 
-        # Assuming `X_cols` is the list of column names used for training (which was in the notebook state)
-        # For the deployed app, `X_cols` should be saved/loaded along with the model.
-        # Let's create `all_model_features` based on how `X` was created in the notebook
-        all_model_features = numerical_features.columns.tolist() + state_X_cols
-        
-        # Create a DataFrame with all expected columns and fill with 0s, then update with current input
-        final_input_df = pd.DataFrame(columns=all_model_features, index=[0]).fillna(0)
-        for col in numerical_features.columns:
-            final_input_df[col] = numerical_features[col].iloc[0]
-        for col in encoded_categorical_df.columns:
-            if col in final_input_df.columns:
-                final_input_df[col] = encoded_categorical_df[col].iloc[0]
-
-        # Make prediction
-        prediction = model.predict(final_input_df)
-        st.success(f'Predicted Fuel Surcharge: ${prediction[0]:.2f}')
+        st.success(f'Predicted Fuel Surcharge: ${prediction:.2f}')
